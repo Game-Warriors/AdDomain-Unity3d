@@ -38,7 +38,7 @@ namespace GameWarriors.AdDomain.Core
             if (_videoHandler != null)
             {
                 await Task.Delay(200);
-                _videoHandler.Initialization(() => { LoadVideoAd(); }, OnLoadVideoAdSuccess, OnLoadVideoAdFailed);
+                _videoHandler.Setup(() => { LoadVideoAd(); }, OnLoadVideoAdSuccess, OnLoadVideoAdFailed);
             }
         }
 
