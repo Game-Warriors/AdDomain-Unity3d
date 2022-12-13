@@ -44,9 +44,6 @@ namespace GameWarriors.AdDomain.Core
 
         public void LoadVideoAd(bool isLoadInterstitial = false)
         {
-#if UNITY_EDITOR && false
-            return;
-#endif
             if (Application.internetReachability == NetworkReachability.NotReachable)
             {
                 return;
@@ -68,17 +65,12 @@ namespace GameWarriors.AdDomain.Core
                 return;
             }
 
-
-#if UNITY_EDITOR && false
-            onShowVideoAdDone?.Invoke(true, true);
-#else  
             EVideoAdState result = _videoHandler?.ShowVideoAd(onShowVideoAdDone) ?? EVideoAdState.None;
-            Debug.Log(result);
+            Debug.Log("VideoAdState: " + result);
             if (result == EVideoAdState.Success)
                 LoadVideoAd();
             else
                 OnVideoUnavailable?.Invoke(result);
-#endif
         }
 
         public void LoadInterstitialAd()
@@ -123,8 +115,8 @@ namespace GameWarriors.AdDomain.Core
             Debug.Log("OnLoadVideoAdFailed: " + state);
             switch (state)
             {
-                case EVideoAdState.NoExist: _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(600)); break;
-                case EVideoAdState.NoInternet: _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(800)); break;
+                case EVideoAdState.NoExist: _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(_adConfig.WaitAfterNotExsit)); break;
+                case EVideoAdState.NoInternet: _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(_adConfig.WaitAfterNoInternet)); break;
                 case EVideoAdState.Success: LoadVideoAd(); break;
                 default:
                     break;
@@ -137,7 +129,7 @@ namespace GameWarriors.AdDomain.Core
             if (!_isRequestingVideo)
                 LoadVideoAd();
             else
-                _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(6));
+                _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(_adConfig.DelayWhenIsRequesting));
         }
     }
 }
