@@ -1,3 +1,6 @@
+  version : 0.1.3
+  defining separate script assembly for samples
+
   version : 0.1.2
   add video retry time to ad config
 
