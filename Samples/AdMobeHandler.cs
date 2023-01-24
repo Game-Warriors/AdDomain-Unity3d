@@ -4,7 +4,7 @@ using GameWarriors.AdDomain.Abstraction;
 
 namespace Managements.Handlers.Advertise
 {
-#if ADMOB
+#if ADMOB || true
     //ca-app-pub-3940256099942544~3347511713 android test app id
     //ca-app-pub-3940256099942544~1458002511 ios test app id
 
@@ -39,7 +39,7 @@ namespace Managements.Handlers.Advertise
 
         public bool IsVideoAvailable => _rewardedAd?.IsLoaded() ?? false;
 #endif
-
+        public bool IsInterstitialAvailable => _interstitial?.IsLoaded() ?? false;
         //https://developers.google.com/admob/unity/test-ads
         [UnityEngine.Scripting.Preserve]
         public AdMobeHandler(IAdvertiseConfig advertiseConfig)

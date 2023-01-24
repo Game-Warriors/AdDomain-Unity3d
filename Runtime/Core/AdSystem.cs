@@ -19,6 +19,7 @@ namespace GameWarriors.AdDomain.Core
         private bool _isRequestingVideo;
 
         public bool IsVideoAdExist => _videoHandler?.IsVideoAvailable ?? false;
+        public bool IsInterstitialAdExist => _interstitialHandler?.IsInterstitialAvailable ?? false;
 
         [UnityEngine.Scripting.Preserve]
         public AdSystem(IAdvertiseConfig adConfig,IAdBannerHandler bannerHandler, IAdVideoHandler adVideoHandler, IAdNativeBannerHandler adNativeBannerHandler, IAdInterstitialHandler adInterstitialHandler)

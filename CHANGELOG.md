@@ -1,3 +1,6 @@
+  version : 0.1.4
+  add the interstitial ad availability boolean property into IAdvertise and IAdInterstitialHandler abstractions
+
   version : 0.1.3
   defining separate script assembly for samples
 

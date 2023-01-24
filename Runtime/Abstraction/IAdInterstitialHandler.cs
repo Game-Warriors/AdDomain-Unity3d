@@ -2,6 +2,7 @@
 {
     public interface IAdInterstitialHandler
     {
+        bool IsInterstitialAvailable { get; }
         void LoadInterstitialAd();
         void ShowInterstitialAd();
     }
