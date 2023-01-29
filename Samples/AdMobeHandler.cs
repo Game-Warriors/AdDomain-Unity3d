@@ -167,26 +167,94 @@ namespace Managements.Handlers.Advertise
         {
             if (_interstitial == null)
             {
-                _interstitial = new InterstitialAd(INTERSTITIAL_ID);
-                _interstitial.OnAdClosed += (object sender, System.EventArgs args) => { Debug.Log("interstital close"); };
-                _interstitial.OnAdFailedToLoad += (T1, T2) => { Debug.LogError("interstital load error: " + T2.LoadAdError); };
-            }
-            if (!_interstitial.IsLoaded())
-            {
-                // Create an empty ad request.
-                AdRequest request = new AdRequest.Builder().Build();
-                // Load the interstitial with the request.
-                _interstitial.LoadAd(request);
+                CreateAndLoadInterstitialAd();
             }
         }
 
-        public void ShowInterstitialAd()
+        private void CreateAndLoadInterstitialAd()
         {
-            if (_interstitial.IsLoaded())
-                _interstitial.Show();
-            else
-                Debug.LogError("show Interstitial error");
+            _interstitial = new InterstitialAd(INTERSTITIAL_ID);
+            _interstitial.OnAdClosed += OnInterstitialAdClosed;
+            _interstitial.OnAdFailedToLoad += OnInterstitialOnAdFailedToLoad;
+            _interstitial.OnPaidEvent += InterstitialOnPaidEvent;
+            _interstitial.OnAdLoaded += OnInterstitialAdLoaded;
+            _interstitial.OnAdFailedToShow += OnAdFailedToShow;
+            _interstitial.OnAdOpening += OnAdOpening;
+
+            AdRequest request = new AdRequest.Builder().Build();
+            _interstitial.LoadAd(request);
         }
+
+        private void OnAdFailedToShow(object sender, AdErrorEventArgs e)
+        {
+            FuntoryEventHandler.OnAdShowResultFail(FuntoryEventHandler.Interstitial, _lastIntersialPlacement, e.AdError.GetCode(), e.AdError.GetMessage());
+        }
+
+        private void OnAdOpening(object sender, EventArgs e)
+        {
+            FuntoryEventHandler.OnAdShowResultSuccess(FuntoryEventHandler.Interstitial, _lastIntersialPlacement, _interstitial?.GetResponseInfo()?.GetMediationAdapterClassName() ?? "", _interstitial?.GetResponseInfo()?.GetResponseId() ?? "");
+        }
+
+        private void OnInterstitialAdLoaded(object sender, EventArgs e)
+        {
+            FuntoryEventHandler.OnAdLoadResult(FuntoryEventHandler.Interstitial, 1);
+        }
+
+        private void OnInterstitialOnAdFailedToLoad(object sender, AdFailedToLoadEventArgs e)
+        {
+            _interstitial = null;
+            FuntoryEventHandler.OnAdLoadResult(FuntoryEventHandler.Interstitial, 0, e.LoadAdError.GetCode(), e.LoadAdError.GetMessage());
+        }
+
+        private void OnInterstitialAdClosed(object sender, EventArgs e)
+        {
+
+        }
+
+        private void InterstitialOnPaidEvent(object sender, AdValueEventArgs e)
+        {
+            FuntoryEventHandler.OnAdRevenue(FuntoryEventHandler.Interstitial, _interstitial?.GetResponseInfo()?.GetMediationAdapterClassName() ?? "", e.AdValue.CurrencyCode, e.AdValue.Value, e.AdValue.Precision.ToString());
+        }
+
+        public EAdState ShowInterstitialAd()
+        {
+            if (_interstitial == null)
+                return EAdState.NotRequest;
+
+            if (!_interstitial.IsLoaded())
+                return EAdState.NotLoaded;
+
+
+
+            _interstitial.Show();
+            _interstitial = null;
+            return EAdState.Success;
+            //if (_interstitial != null && _interstitial.IsLoaded())
+            //{
+            //    _interstitial.Show();
+            //    _gameService.GameDataModel.InterstitialCount++;
+            //    _event.BroadcastEvent(EEventType.OnAdSeen);
+            //}
+            //else
+            //{
+            //    if (_interstitial == null)
+            //    {
+            //        FuntoryEventHandler.OnAdShowResultFail(FuntoryEventHandler.Interstitial, placement, 0, "InterstitialAd is null");
+            //    }
+            //    else if (!_interstitial.IsLoaded())
+            //    {
+            //        FuntoryEventHandler.OnAdShowResultFail(FuntoryEventHandler.Interstitial, placement, 0, "InterstitialAd not loaded");
+            //    }
+            //    Debug.LogError("show Interstitial error");
+            //}
+
+
+            //if (_interstitial.IsLoaded())
+            //    _interstitial.Show();
+            //else
+            //    Debug.LogError("show Interstitial error");
+        }
+
 
 
         public void HideNativeBannerAd()

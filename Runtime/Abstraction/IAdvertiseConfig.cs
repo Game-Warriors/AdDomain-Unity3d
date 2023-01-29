@@ -12,5 +12,8 @@ namespace GameWarriors.AdDomain.Abstraction
 
         string GetAdUnitId(EAdHandlerType handlerType, EUnitAdType unitType);
         GameObject AdUnitNativeBanner(EAdHandlerType type);
+
+        IRewardedAdPlace DefaultVideoAdPlace { get; }
+        IInterstitialAdPlace DefaultInterstitialPlace { get; }
     }
 }

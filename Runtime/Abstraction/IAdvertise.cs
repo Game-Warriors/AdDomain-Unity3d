@@ -1,18 +1,28 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace GameWarriors.AdDomain.Abstraction
 {
     public enum EAdHandlerType { None, Tapsell, Admobe }
     public enum EUnitAdType { None, AppId, InterstitalId, NativeBannerId, RewardAdId, BannerId }
-    public enum EVideoAdState { None, Success, NoExist, NoInternet }
+    public enum EAdState { None, Success, NoExist, NoInternet, NotLoaded, NotRequest, Failed }
+
 
     public interface IAdvertise
     {
-        bool IsVideoAdExist { get; }
+        bool IsAnyVideoAdExist { get; }
+        bool IsAnyInterstitialExist { get; }
 
-        event Action OnVideoAvailable;
-        void ShowVideoAd(Action<bool, bool> adVideoShowDone, Action adVideoShowFailed, bool isShowInterstitial = false);
-        void LoadVideoAd(bool isLoadInterstitial = false);
+        event Action<IRewardedAdPlace> OnVideoAvailable;
+
+        bool IsVideoAdExist(IRewardedAdPlace place);
+        EAdState ShowVideoAd(IRewardedAdPlace place);
+        void LoadVideoAd(IRewardedAdPlace place);
+
+        bool IsInterstitialExist(IInterstitialAdPlace place);
+        void LoadInterstitialAd(IInterstitialAdPlace place);
+        EAdState ShowInterstitialAd(IInterstitialAdPlace place);
+
         IAdBannerHandler RequestAdBanner();
     }
 }

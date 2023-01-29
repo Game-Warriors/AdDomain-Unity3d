@@ -3,26 +3,52 @@ using System;
 using System.Collections;
 using UnityEngine;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace GameWarriors.AdDomain.Core
 {
-    public class AdSystem : IAdvertise
+    public class AdSystem : IAdvertise, IInterstitialEventListener, IRewardedEventListener
     {
-        public event Action OnVideoAvailable;
-        public event Action<EVideoAdState> OnVideoUnavailable;
+        public event Action<IRewardedAdPlace> OnVideoAvailable;
+        public event Action<EAdState> OnVideoUnavailable;
 
         private IAdVideoHandler _videoHandler;
         private IAdBannerHandler _bannerHandler;
         private IAdNativeBannerHandler _nativeBannerHandler;
         private IAdInterstitialHandler _interstitialHandler;
         private IAdvertiseConfig _adConfig;
-        private bool _isRequestingVideo;
 
-        public bool IsVideoAdExist => _videoHandler?.IsVideoAvailable ?? false;
-        public bool IsInterstitialAdExist => _interstitialHandler?.IsInterstitialAvailable ?? false;
+        private readonly Dictionary<IInterstitialAdPlace, IInterstitialAd> _interstitialTable;
+        private readonly Dictionary<IRewardedAdPlace, IRewardedAd> _rewardedTable;
+
+        public bool IsAnyVideoAdExist
+        {
+            get
+            {
+                foreach (var item in _rewardedTable.Values)
+                {
+                    if (item != null && item.IsAvailable)
+                        return true;
+                }
+                return false;
+            }
+        }
+
+        public bool IsAnyInterstitialExist
+        {
+            get
+            {
+                foreach (var item in _interstitialTable.Values)
+                {
+                    if (item != null && item.IsAvailable)
+                        return true;
+                }
+                return false;
+            }
+        }
 
         [UnityEngine.Scripting.Preserve]
-        public AdSystem(IAdvertiseConfig adConfig,IAdBannerHandler bannerHandler, IAdVideoHandler adVideoHandler, IAdNativeBannerHandler adNativeBannerHandler, IAdInterstitialHandler adInterstitialHandler)
+        public AdSystem(IAdvertiseConfig adConfig, IAdBannerHandler bannerHandler, IAdVideoHandler adVideoHandler, IAdNativeBannerHandler adNativeBannerHandler, IAdInterstitialHandler adInterstitialHandler)
         {
             OnVideoAvailable = null;
             OnVideoUnavailable = null;
@@ -31,57 +57,182 @@ namespace GameWarriors.AdDomain.Core
             _videoHandler = adVideoHandler;
             _nativeBannerHandler = adNativeBannerHandler;
             _interstitialHandler = adInterstitialHandler;
+            _interstitialTable = new Dictionary<IInterstitialAdPlace, IInterstitialAd>();
+            _rewardedTable = new Dictionary<IRewardedAdPlace, IRewardedAd>();
         }
 
         [UnityEngine.Scripting.Preserve]
         public async Task WaitForLoading()
         {
+            if (_adConfig.DefaultVideoAdPlace == null)
+                Debug.LogError("The Default VideoAd Place is null");
+
+            if (_adConfig.DefaultInterstitialPlace == null)
+                Debug.LogError("The Default Interstitial Place is null");
+
             if (_videoHandler != null)
             {
                 await Task.Delay(200);
-                _videoHandler.Setup(() => { LoadVideoAd(); }, OnLoadVideoAdSuccess, OnLoadVideoAdFailed);
+                _videoHandler.Setup(() => LoadVideoAd(_adConfig.DefaultVideoAdPlace));
             }
         }
 
-        public void LoadVideoAd(bool isLoadInterstitial = false)
+
+        public bool IsVideoAdExist(IRewardedAdPlace place)
+        {
+            place ??= _adConfig.DefaultVideoAdPlace;
+            if (place == null)
+                return false;
+            if (_rewardedTable.TryGetValue(place, out var interstitialAd))
+            {
+                return interstitialAd.IsAvailable;
+            }
+            return false;
+        }
+
+        public bool IsInterstitialExist(IInterstitialAdPlace place)
+        {
+            place ??= _adConfig.DefaultInterstitialPlace;
+            if (place == null)
+                return false;
+            if (_interstitialTable.TryGetValue(place, out var interstitialAd))
+            {
+                return interstitialAd.IsAvailable;
+            }
+            return false;
+        }
+
+        public void LoadVideoAd(IRewardedAdPlace place)
+        {
+            if (Application.internetReachability == NetworkReachability.NotReachable)
+            {
+                return;
+            }
+            place ??= _adConfig.DefaultVideoAdPlace;
+            if (place != null)
+            {
+                bool isAdd = AddRewarded(place);
+                if (isAdd)
+                    _videoHandler?.LoadVideoAd(place, this);
+            }
+        }
+
+        EAdState IAdvertise.ShowVideoAd(IRewardedAdPlace place)
+        {
+            place ??= _adConfig.DefaultVideoAdPlace;
+            if (Application.internetReachability == NetworkReachability.NotReachable)
+            {
+                _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(_adConfig.WaitAfterNoInternet, place));
+                //place?.OnVideoShowFailed(EAdState.NoInternet, -1, "NoConnection");
+                return EAdState.NoInternet;
+            }
+            if (place != null)
+            {
+                if (!IsVideoAdExist(place))
+                    return EAdState.NotRequest;
+                IRewardedAd rewarded = FindRewardedAd(place);
+                if (rewarded != null)
+                {
+                    EAdState result = rewarded.Show();
+                    if (result == EAdState.Success)
+                    {
+                        LoadVideoAd(place);
+                    }
+                    else
+                    {
+                        _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(_adConfig.WaitAfterNotExsit, place));
+                        //place?.OnVideoShowFailed(EAdState.NoExist, -1, "Unavailable");
+                        OnVideoUnavailable?.Invoke(result);
+                    }
+                    return result;
+                }
+                return EAdState.NotLoaded;
+            }
+            return EAdState.None;
+        }
+
+        public void LoadInterstitialAd(IInterstitialAdPlace place)
         {
             if (Application.internetReachability == NetworkReachability.NotReachable)
             {
                 return;
             }
 
-            if (_videoHandler == null || (_videoHandler?.IsVideoAvailable ?? false) || _isRequestingVideo)
-                return;
-            if (isLoadInterstitial)
-                LoadInterstitialAd();
-            _isRequestingVideo = true;
-            _videoHandler?.LoadVideoAd();
-        }
-
-        public void ShowVideoAd(Action<bool, bool> onShowVideoAdDone, Action onShowVideoAdFailed, bool isShowInterstitial = false)
-        {
-            if (Application.internetReachability == NetworkReachability.NotReachable)
+            place ??= _adConfig.DefaultInterstitialPlace;
+            if (place != null)
             {
-                onShowVideoAdFailed?.Invoke();
-                return;
+                bool isAdd = AddInterstitial(place);
+                if (isAdd)
+                    _interstitialHandler?.LoadInterstitialAd(place, this);
             }
-
-            EVideoAdState result = _videoHandler?.ShowVideoAd(onShowVideoAdDone) ?? EVideoAdState.None;
-            Debug.Log("VideoAdState: " + result);
-            if (result == EVideoAdState.Success)
-                LoadVideoAd();
-            else
-                OnVideoUnavailable?.Invoke(result);
         }
 
-        public void LoadInterstitialAd()
+        EAdState IAdvertise.ShowInterstitialAd(IInterstitialAdPlace place)
         {
-            _interstitialHandler?.LoadInterstitialAd();
+            place ??= _adConfig.DefaultInterstitialPlace;
+            if (place != null)
+            {
+                if (!IsInterstitialExist(place))
+                    return EAdState.NotRequest;
+                IInterstitialAd interstitialAd = FindInterstitialAd(place);
+                if (interstitialAd != null)
+                {
+                    return interstitialAd.Show();
+                }
+                return EAdState.NotLoaded;
+            }
+            return EAdState.None;
         }
 
-        public void ShowInterstitialAd()
+        void IInterstitialEventListener.OnInterstitialAdLoaded(IInterstitialAd interstitialAd, IInterstitialAdPlace place)
         {
-            _interstitialHandler?.ShowInterstitialAd();
+            UpdateInterstitial(interstitialAd, place);
+        }
+
+        void IInterstitialEventListener.OnInterstitialAdLoadedFailed(IInterstitialAdPlace place)
+        {
+            RemoveInterstitial(place);
+        }
+
+        void IRewardedEventListener.OnRewardedAdLoaded(IRewardedAd interstitialAd, IRewardedAdPlace place)
+        {
+            OnVideoAvailable?.Invoke(place);
+            UpdateRewarded(interstitialAd, place);
+        }
+
+        void IRewardedEventListener.OnRewardedAdLoadedFailed(IRewardedAdPlace place)
+        {
+            RemoveRewarded(place);
+        }
+
+        private bool AddInterstitial(IInterstitialAdPlace place)
+        {
+            bool isAdd = false;
+            lock (_interstitialTable)
+                isAdd = _interstitialTable.TryAdd(place, null);
+            return isAdd;
+        }
+
+        private void UpdateInterstitial(IInterstitialAd interstitialAd, IInterstitialAdPlace place)
+        {
+            lock (_interstitialTable)
+            {
+                _interstitialTable[place] = interstitialAd;
+            }
+        }
+
+        private void RemoveInterstitial(IInterstitialAdPlace place)
+        {
+            lock (_interstitialTable)
+                _interstitialTable.Remove(place);
+        }
+
+        private IInterstitialAd FindInterstitialAd(IInterstitialAdPlace place)
+        {
+            IInterstitialAd interstitialAd = null;
+            lock (_interstitialTable)
+                _interstitialTable.TryGetValue(place, out interstitialAd);
+            return interstitialAd;
         }
 
         public void LoadNativeBannerAd()
@@ -104,33 +255,43 @@ namespace GameWarriors.AdDomain.Core
             _nativeBannerHandler?.HideNativeBannerAd();
         }
 
-        private void OnLoadVideoAdSuccess()
+        private IEnumerator CheckVideo(float seconds, IRewardedAdPlace place)
         {
-            _isRequestingVideo = false;
-            OnVideoAvailable?.Invoke();
+            yield return new WaitForSeconds(seconds);
+            if (!IsVideoAdExist(place))
+                LoadVideoAd(place);
+            else
+                _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(_adConfig.DelayWhenIsRequesting, place));
         }
 
-        private void OnLoadVideoAdFailed(EVideoAdState state)
+        private bool AddRewarded(IRewardedAdPlace place)
         {
-            _isRequestingVideo = false;
-            Debug.Log("OnLoadVideoAdFailed: " + state);
-            switch (state)
+            bool isAdd = false;
+            lock (_rewardedTable)
+                isAdd = _rewardedTable.TryAdd(place, null);
+            return isAdd;
+        }
+
+        private IRewardedAd FindRewardedAd(IRewardedAdPlace place)
+        {
+            IRewardedAd rewardedAd = null;
+            lock (_rewardedTable)
+                _rewardedTable.TryGetValue(place, out rewardedAd);
+            return rewardedAd;
+        }
+
+        private void UpdateRewarded(IRewardedAd interstitialAd, IRewardedAdPlace place)
+        {
+            lock (_rewardedTable)
             {
-                case EVideoAdState.NoExist: _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(_adConfig.WaitAfterNotExsit)); break;
-                case EVideoAdState.NoInternet: _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(_adConfig.WaitAfterNoInternet)); break;
-                case EVideoAdState.Success: LoadVideoAd(); break;
-                default:
-                    break;
+                _rewardedTable[place] = interstitialAd;
             }
         }
 
-        private IEnumerator CheckVideo(float seconds)
+        private void RemoveRewarded(IRewardedAdPlace place)
         {
-            yield return new WaitForSeconds(seconds);
-            if (!_isRequestingVideo)
-                LoadVideoAd();
-            else
-                _adConfig.CoroutineHandler.StartCoroutine(CheckVideo(_adConfig.DelayWhenIsRequesting));
+            lock (_rewardedTable)
+                _rewardedTable.Remove(place);
         }
     }
 }
