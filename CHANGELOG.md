@@ -1,3 +1,6 @@
+  version : 0.2.1
+  add disposable feature to IInterstitialAd and IRewardedAd
+
   version : 0.2.0
   change advertise whole logic based on ad placement and complete interstitial ad abstraction
 

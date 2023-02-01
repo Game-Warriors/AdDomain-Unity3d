@@ -189,20 +189,22 @@ namespace GameWarriors.AdDomain.Core
             UpdateInterstitial(interstitialAd, place);
         }
 
-        void IInterstitialEventListener.OnInterstitialAdLoadedFailed(IInterstitialAdPlace place)
+        void IInterstitialEventListener.OnInterstitialAdLoadedFailed(IInterstitialAd interstitialAd,IInterstitialAdPlace place)
         {
             RemoveInterstitial(place);
+            interstitialAd.Dispose();
         }
 
-        void IRewardedEventListener.OnRewardedAdLoaded(IRewardedAd interstitialAd, IRewardedAdPlace place)
+        void IRewardedEventListener.OnRewardedAdLoaded(IRewardedAd rewardedAd, IRewardedAdPlace place)
         {
             OnVideoAvailable?.Invoke(place);
-            UpdateRewarded(interstitialAd, place);
+            UpdateRewarded(rewardedAd, place);
         }
 
-        void IRewardedEventListener.OnRewardedAdLoadedFailed(IRewardedAdPlace place)
+        void IRewardedEventListener.OnRewardedAdLoadedFailed(IRewardedAd rewardedAd, IRewardedAdPlace place)
         {
             RemoveRewarded(place);
+            rewardedAd.Dispose();
         }
 
         private bool AddInterstitial(IInterstitialAdPlace place)

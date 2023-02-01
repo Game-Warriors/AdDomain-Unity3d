@@ -1,34 +1,30 @@
-﻿using UnityEngine;
+﻿//#define USE_ADMOBE
+
+using UnityEngine;
+using UnityEngine.UI;
 using System;
-using GameWarriors.AdDomain.Abstraction;
+
+//#if USE_ADMOBE
+
 
 namespace Managements.Handlers.Advertise
 {
-#if ADMOB || true
-    //ca-app-pub-3940256099942544~3347511713 android test app id
-    //ca-app-pub-3940256099942544~1458002511 ios test app id
+    using GameWarriors.AdDomain.Abstraction;
 
-
+#if ADMOB
     using GoogleMobileAds.Api;
     using System.Collections.Generic;
 
-    public class AdMobeHandler : IAdVideoHandler, IAdNativeBannerHandler, IAdInterstitialHandler
+    public class AdMobeHandler : IAdVideoHandler, IAdNativeBannerHandler
     {
 
-        private readonly string INTERSTITIAL_ID;
-        //private readonly string NATIVE_BANNER_ID;
-        private string REWARD_AD_ID;
+        private readonly string NATIVE_BANNER_ID;
 
+        private readonly string REWARD_AD_ID;
         private GameObject _nativeBannerObject;
-        private RewardedAd _rewardedAd;
+
         //private AdLoader _nativeAdLoader;
-        private InterstitialAd _interstitial;
-
         private bool _isUnifiedNativeAdLoaded;
-        private Action _onVideoAvailable;
-        private Action<EVideoAdState> _onLoadVideoFailed;
-        private Action<bool, bool> _onAdVideoDone;
-
         private List<string> _testDevices;
 
 #if NATIVE_AD
@@ -36,15 +32,15 @@ namespace Managements.Handlers.Advertise
         public bool HasBanner => _nativeAd != null;
 #else
         public bool HasBanner => false;
-
-        public bool IsVideoAvailable => _rewardedAd?.IsLoaded() ?? false;
 #endif
-        public bool IsInterstitialAvailable => _interstitial?.IsLoaded() ?? false;
+
         //https://developers.google.com/admob/unity/test-ads
         [UnityEngine.Scripting.Preserve]
         public AdMobeHandler(IAdvertiseConfig advertiseConfig)
         {
             _nativeBannerObject = advertiseConfig.AdUnitNativeBanner(EAdHandlerType.Admobe);
+            NATIVE_BANNER_ID = advertiseConfig.GetAdUnitId(EAdHandlerType.Admobe, EUnitAdType.InterstitalId);
+
             REWARD_AD_ID = advertiseConfig.GetAdUnitId(EAdHandlerType.Admobe, EUnitAdType.RewardAdId);
             _testDevices = new List<string>() { { "A4B0860103793A14D30DB96346BD45BA" } };
             Application.RequestAdvertisingIdentifierAsync(GetId);
@@ -52,17 +48,13 @@ namespace Managements.Handlers.Advertise
 
         private void GetId(string advertisingId, bool trackingEnabled, string errorMsg)
         {
-            Debug.Log("advertisingId : " + advertisingId);
+            Debug.Log(advertisingId);
         }
 
-        public void Initialization(Action onInitializeDone, Action OnVideoAvailable, Action<EVideoAdState> OnVideoUnavailable)
+
+        public void Setup(Action onInitializeDone)
         {
-            _onVideoAvailable = OnVideoAvailable;
-            _onLoadVideoFailed = OnVideoUnavailable;
-            MobileAds.Initialize((input) =>
-            {
-                InitializeResult(input, onInitializeDone);
-            });
+            MobileAds.Initialize((input) => { InitializeResult(input, onInitializeDone); });
         }
 
         private void InitializeResult(InitializationStatus initState, Action onInitializeDone)
@@ -76,7 +68,6 @@ namespace Managements.Handlers.Advertise
                 Debug.Log(status.Description);
                 switch (status.InitializationState)
                 {
-
                     case AdapterState.NotReady:
                         // The adapter initialization did not complete.
                         MonoBehaviour.print("Adapter: " + className + " not ready.");
@@ -87,19 +78,7 @@ namespace Managements.Handlers.Advertise
                         break;
                 }
             }
-            _rewardedAd = new RewardedAd(REWARD_AD_ID);
-            // Called when an ad request has successfully loaded.
-            _rewardedAd.OnAdLoaded += HandleRewardedAdLoaded;
-            // Called when an ad request failed to load.
-            _rewardedAd.OnAdFailedToLoad += HandleRewardedAdFailedToLoad;
-            // Called when an ad is shown.
-            _rewardedAd.OnAdOpening += HandleRewardedAdOpening;
-            // Called when an ad request failed to show.
-            _rewardedAd.OnAdFailedToShow += HandleRewardedAdFailedToShow;
-            // Called when the user should be rewarded for interacting with the ad.
-            _rewardedAd.OnUserEarnedReward += HandleUserEarnedReward;
-            // Called when the ad is closed.
-            _rewardedAd.OnAdClosed += HandleRewardedAdClosed;
+
             onInitializeDone?.Invoke();
         }
 
@@ -163,125 +142,16 @@ namespace Managements.Handlers.Advertise
 #endif
         }
 
-        public void LoadInterstitialAd()
-        {
-            if (_interstitial == null)
-            {
-                CreateAndLoadInterstitialAd();
-            }
-        }
-
-        private void CreateAndLoadInterstitialAd()
-        {
-            _interstitial = new InterstitialAd(INTERSTITIAL_ID);
-            _interstitial.OnAdClosed += OnInterstitialAdClosed;
-            _interstitial.OnAdFailedToLoad += OnInterstitialOnAdFailedToLoad;
-            _interstitial.OnPaidEvent += InterstitialOnPaidEvent;
-            _interstitial.OnAdLoaded += OnInterstitialAdLoaded;
-            _interstitial.OnAdFailedToShow += OnAdFailedToShow;
-            _interstitial.OnAdOpening += OnAdOpening;
-
-            AdRequest request = new AdRequest.Builder().Build();
-            _interstitial.LoadAd(request);
-        }
-
-        private void OnAdFailedToShow(object sender, AdErrorEventArgs e)
-        {
-            FuntoryEventHandler.OnAdShowResultFail(FuntoryEventHandler.Interstitial, _lastIntersialPlacement, e.AdError.GetCode(), e.AdError.GetMessage());
-        }
-
-        private void OnAdOpening(object sender, EventArgs e)
-        {
-            FuntoryEventHandler.OnAdShowResultSuccess(FuntoryEventHandler.Interstitial, _lastIntersialPlacement, _interstitial?.GetResponseInfo()?.GetMediationAdapterClassName() ?? "", _interstitial?.GetResponseInfo()?.GetResponseId() ?? "");
-        }
-
-        private void OnInterstitialAdLoaded(object sender, EventArgs e)
-        {
-            FuntoryEventHandler.OnAdLoadResult(FuntoryEventHandler.Interstitial, 1);
-        }
-
-        private void OnInterstitialOnAdFailedToLoad(object sender, AdFailedToLoadEventArgs e)
-        {
-            _interstitial = null;
-            FuntoryEventHandler.OnAdLoadResult(FuntoryEventHandler.Interstitial, 0, e.LoadAdError.GetCode(), e.LoadAdError.GetMessage());
-        }
-
-        private void OnInterstitialAdClosed(object sender, EventArgs e)
-        {
-
-        }
-
-        private void InterstitialOnPaidEvent(object sender, AdValueEventArgs e)
-        {
-            FuntoryEventHandler.OnAdRevenue(FuntoryEventHandler.Interstitial, _interstitial?.GetResponseInfo()?.GetMediationAdapterClassName() ?? "", e.AdValue.CurrencyCode, e.AdValue.Value, e.AdValue.Precision.ToString());
-        }
-
-        public EAdState ShowInterstitialAd()
-        {
-            if (_interstitial == null)
-                return EAdState.NotRequest;
-
-            if (!_interstitial.IsLoaded())
-                return EAdState.NotLoaded;
-
-
-
-            _interstitial.Show();
-            _interstitial = null;
-            return EAdState.Success;
-            //if (_interstitial != null && _interstitial.IsLoaded())
-            //{
-            //    _interstitial.Show();
-            //    _gameService.GameDataModel.InterstitialCount++;
-            //    _event.BroadcastEvent(EEventType.OnAdSeen);
-            //}
-            //else
-            //{
-            //    if (_interstitial == null)
-            //    {
-            //        FuntoryEventHandler.OnAdShowResultFail(FuntoryEventHandler.Interstitial, placement, 0, "InterstitialAd is null");
-            //    }
-            //    else if (!_interstitial.IsLoaded())
-            //    {
-            //        FuntoryEventHandler.OnAdShowResultFail(FuntoryEventHandler.Interstitial, placement, 0, "InterstitialAd not loaded");
-            //    }
-            //    Debug.LogError("show Interstitial error");
-            //}
-
-
-            //if (_interstitial.IsLoaded())
-            //    _interstitial.Show();
-            //else
-            //    Debug.LogError("show Interstitial error");
-        }
-
-
-
         public void HideNativeBannerAd()
         {
             _nativeBannerObject.SetActive(false);
         }
 
-        public void LoadVideoAd()
+        public IRewardedAd LoadVideoAd(IRewardedAdPlace place, IRewardedEventListener listener)
         {
-            if (_rewardedAd != null)
-            {
-                AdRequest request = new AdRequest.Builder().Build();
-                //request.se.Add("A4B0860103793A14D30DB96346BD45BA");
-                Debug.Log("_rewardedAd: " + _rewardedAd);
-                _rewardedAd.LoadAd(request);
-            }
-        }
-
-        public EVideoAdState ShowVideoAd(Action<bool, bool> OnAdVideoDone)
-        {
-            _onAdVideoDone = OnAdVideoDone;
-            if (_rewardedAd.IsLoaded())
-            {
-                _rewardedAd.Show();
-                return EVideoAdState.Success;
-            }
-            return EVideoAdState.NoExist;
+            Rewarded rewarded = new Rewarded(REWARD_AD_ID, place, listener);
+            rewarded.Load();
+            return rewarded;
         }
 
 #if NATIVE_AD
@@ -292,44 +162,6 @@ namespace Managements.Handlers.Advertise
             _isUnifiedNativeAdLoaded = true;
         }
 #endif
-
-        private void HandleRewardedAdClosed(object sender, EventArgs e)
-        {
-            return;
-        }
-
-        private void HandleUserEarnedReward(object sender, Reward e)
-        {
-            bool hasReward = e.Amount > 0;
-            bool isComplete = true;
-            _onAdVideoDone?.Invoke(isComplete, hasReward);
-        }
-
-        private void HandleRewardedAdFailedToShow(object sender, AdErrorEventArgs e)
-        {
-            return;
-        }
-
-        private void HandleRewardedAdOpening(object sender, EventArgs e)
-        {
-            return;
-        }
-
-        private void HandleRewardedAdFailedToLoad(object sender, AdFailedToLoadEventArgs arg)
-        {
-            Debug.LogWarning(arg.LoadAdError);
-            _onLoadVideoFailed?.Invoke(0);
-            return;
-        }
-
-        private void HandleRewardedAdLoaded(object sender, EventArgs e)
-        {
-            Debug.LogWarning("HandleRewardedAdLoaded");
-            _onVideoAvailable?.Invoke();
-        }
-
-
     }
 #endif
 }
-
