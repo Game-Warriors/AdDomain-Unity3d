@@ -189,10 +189,18 @@ namespace GameWarriors.AdDomain.Core
             UpdateInterstitial(interstitialAd, place);
         }
 
-        void IInterstitialEventListener.OnInterstitialAdLoadedFailed(IInterstitialAd interstitialAd,IInterstitialAdPlace place)
+        void IInterstitialEventListener.OnInterstitialAdFailed(IInterstitialAd interstitialAd, IInterstitialAdPlace place)
         {
-            RemoveInterstitial(place);
-            interstitialAd.Dispose();
+            if (place != null)
+                RemoveInterstitial(place);
+            interstitialAd?.Dispose();
+        }
+
+        void IInterstitialEventListener.OnInterstitialAdClosed(IInterstitialAd interstitialAd, IInterstitialAdPlace place)
+        {
+            if (place != null)
+                RemoveInterstitial(place);
+            interstitialAd?.Dispose();
         }
 
         void IRewardedEventListener.OnRewardedAdLoaded(IRewardedAd rewardedAd, IRewardedAdPlace place)
@@ -201,10 +209,19 @@ namespace GameWarriors.AdDomain.Core
             UpdateRewarded(rewardedAd, place);
         }
 
-        void IRewardedEventListener.OnRewardedAdLoadedFailed(IRewardedAd rewardedAd, IRewardedAdPlace place)
+        void IRewardedEventListener.OnRewardedAdFailed(IRewardedAd rewardedAd, IRewardedAdPlace place)
         {
-            RemoveRewarded(place);
-            rewardedAd.Dispose();
+            if (place != null)
+                RemoveRewarded(place);
+            rewardedAd?.Dispose();
+        }
+
+
+        void IRewardedEventListener.OnRewardedAdClosed(IRewardedAd rewardedAd, IRewardedAdPlace place)
+        {
+            if (place != null)
+                RemoveRewarded(place);
+            rewardedAd?.Dispose();
         }
 
         private bool AddInterstitial(IInterstitialAdPlace place)
@@ -295,5 +312,7 @@ namespace GameWarriors.AdDomain.Core
             lock (_rewardedTable)
                 _rewardedTable.Remove(place);
         }
+
+
     }
 }

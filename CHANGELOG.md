@@ -1,3 +1,6 @@
+  version : 0.2.2
+  fix disposing rewarded and Interstitial advertise issue
+
   version : 0.2.1
   add disposable feature to IInterstitialAd and IRewardedAd
 
