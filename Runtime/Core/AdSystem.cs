@@ -25,7 +25,7 @@ namespace GameWarriors.AdDomain.Core
         {
             get
             {
-                foreach (var item in _rewardedTable.Values)
+                foreach (IRewardedAd item in _rewardedTable.Values)
                 {
                     if (item != null && item.IsAvailable)
                         return true;
@@ -38,7 +38,7 @@ namespace GameWarriors.AdDomain.Core
         {
             get
             {
-                foreach (var item in _interstitialTable.Values)
+                foreach (IInterstitialAd item in _interstitialTable.Values)
                 {
                     if (item != null && item.IsAvailable)
                         return true;
@@ -83,9 +83,9 @@ namespace GameWarriors.AdDomain.Core
             place ??= _adConfig.DefaultVideoAdPlace;
             if (place == null)
                 return false;
-            if (_rewardedTable.TryGetValue(place, out var interstitialAd))
+            if (_rewardedTable.TryGetValue(place, out var rewardedAd) && rewardedAd != null)
             {
-                return interstitialAd.IsAvailable;
+                return rewardedAd.IsAvailable;
             }
             return false;
         }
@@ -95,7 +95,7 @@ namespace GameWarriors.AdDomain.Core
             place ??= _adConfig.DefaultInterstitialPlace;
             if (place == null)
                 return false;
-            if (_interstitialTable.TryGetValue(place, out var interstitialAd))
+            if (_interstitialTable.TryGetValue(place, out var interstitialAd) && interstitialAd != null)
             {
                 return interstitialAd.IsAvailable;
             }

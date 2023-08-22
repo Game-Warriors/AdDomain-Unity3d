@@ -1,3 +1,6 @@
+  version : 0.2.3
+  fix null reference exception in available check
+
   version : 0.2.2
   fix disposing rewarded and Interstitial advertise issue
 
