@@ -1,3 +1,6 @@
+  version : 0.2.4
+  change log error to log warning for null ad place
+
   version : 0.2.3
   fix null reference exception in available check
 

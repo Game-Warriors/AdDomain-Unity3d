@@ -65,11 +65,10 @@ namespace GameWarriors.AdDomain.Core
         public async Task WaitForLoading()
         {
             if (_adConfig.DefaultVideoAdPlace == null)
-                Debug.LogError("The Default VideoAd Place is null");
+                Debug.LogWarning("The Default VideoAd Place is null");
 
             if (_adConfig.DefaultInterstitialPlace == null)
-                Debug.LogError("The Default Interstitial Place is null");
-
+                Debug.LogWarning("The Default Interstitial Place is null");
             if (_videoHandler != null)
             {
                 await Task.Delay(200);
